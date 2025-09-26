@@ -1,0 +1,8 @@
+# 环境变量配置示例
+# 请创建 .env 文件并填入您的API密钥
+
+# DeepSeek API配置
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+
+# OpenAI API配置（可选，用于备用嵌入模型）
+OPENAI_API_KEY=your_openai_api_key_here
