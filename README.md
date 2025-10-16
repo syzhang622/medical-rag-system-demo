@@ -48,17 +48,6 @@ DEEPSEEK_API_KEY=your_deepseek_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-### 3. 运行阶段一：数据准备
-
-```bash
-python stage1_data_preparation.py
-```
-
-这将：
-- 加载医疗FAQ文档
-- 使用BGE-M3模型生成嵌入向量
-- 创建FAISS向量索引
-- 保存索引到磁盘
 
 ## 技术栈
 
@@ -102,11 +91,36 @@ python stage1_data_preparation.py
 3. **硬件要求**：建议至少4GB内存用于模型推理
 4. **网络要求**：需要稳定的网络连接下载模型和调用API
 
-## 下一步
 
-运行阶段一后，我们将继续实现阶段二的基础RAG功能。请确保：
-1. 成功运行了数据准备脚本
-2. 配置了正确的API密钥
-3. 理解了项目的基本结构
+阶段二
 
-准备好后，我们可以继续阶段二的开发！
+开启真LLM的方法
+在项目根目录新建或编辑.env，加入：
+DEEPSEEK_API_KEY=你的key
+可选网络设置（需要代理时）：
+HTTPS_PROXY / HTTP_PROXY
+验证是否生效（任一其一）：
+重新运行：python -m apps.cli.retrieve --q "感冒和流感有什么区别？" --k 3 --answer
+或快速测试（会真实调API）：
+在core/answering.py里，LLMClient会直接请求DeepSeek；若key有效，就不会降级为片段摘要
+怎么做你要的三类对比（最简指令集）
+多问几个问题（端到端RAG）：
+python -m apps.cli.retrieve --q "如何预防感冒？" --k 3 --answer
+python -m apps.cli.retrieve --q "流感的高危人群是谁？" --k 3 --answer
+只调K（不重建索引）：
+python -m apps.cli.retrieve --q "如何预防感冒？" --k 3 --answer
+python -m apps.cli.retrieve --q "如何预防感冒？" --k 6 --answer
+关注点：K↑覆盖更广但噪声↑；看答案是否更完整且不发散，引用是否更集中
+开关重排（对同一K）：
+无重排：python -m apps.cli.retrieve --q "如何预防感冒？" --k 6 --answer
+有重排：python -m apps.cli.retrieve --q "如何预防感冒？" --k 6 --rerank --answer
+关注点：是否更“对题”、更精炼；速度会慢一点
+改分块策略（要重建索引）：
+修改scripts/config.py的CHUNK_SIZE/CHUNK_OVERLAP
+重建：python -m apps.cli.build_index
+再问：python -m apps.cli.retrieve --q "感冒和流感有什么区别？" --k 3 --answer
+关注点：块大上下文足但定位粗；块小定位准但易缺上下文；重叠↑跨块更连续
+小结你该看什么
+答案是否覆盖问题关键点（对照expected_keywords）
+末尾引用是否合理、集中
+参数变化后：答案是否更完整但不过度发散；性能是否可接受

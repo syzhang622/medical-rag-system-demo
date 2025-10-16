@@ -211,7 +211,7 @@ def main() -> None:
     print(f"   分块数: {len(chunks)}, 示例片段: {example_text}...")
 
     # 步骤3: 保存分块分析结果
-    out_dir = "data/viz_artifacts"
+    out_dir = "data/analysis_results"
     ensure_output_dir(out_dir)
     save_chunks_csv(spans, Config.CHUNK_SIZE, Config.CHUNK_OVERLAP, os.path.join(out_dir, "chunks.csv"))
     print(f"   已保存: {os.path.join(out_dir, 'chunks.csv')} (包含 start/end/重叠 等字段)")

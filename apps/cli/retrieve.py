@@ -29,7 +29,7 @@ def build_argparser() -> argparse.ArgumentParser:
     
     定义CLI支持的所有参数和选项
     """
-    p = argparse.ArgumentParser(description="RAG 检索 CLI")
+    p = argparse.ArgumentParser(description="RAG 检索/问答 CLI")
     
     # 必需参数：查询问题
     p.add_argument("--q", "--query", dest="query", type=str, required=True, 
@@ -42,6 +42,10 @@ def build_argparser() -> argparse.ArgumentParser:
     # 可选参数：是否启用重排
     p.add_argument("--rerank", action="store_true", 
                    help="是否启用交叉编码器重排（提升结果质量但速度较慢）")
+    
+    # 可选参数：是否直接生成答案（调用LLM）
+    p.add_argument("--answer", action="store_true",
+                   help="是否基于检索结果生成最终答案（调用LLM，含引用）")
     
     return p
 
@@ -66,29 +70,37 @@ def main() -> None:
     print("正在加载索引和模型...")
     svc.load()
     
-    # 步骤4：执行检索查询
+    # 步骤4：执行检索或问答
     print(f"正在检索: {args.query}")
-    results = svc.retrieve(query=args.query, top_k=args.top_k, enable_rerank=args.rerank)
+    if args.answer:
+        # 走端到端问答链
+        from core.answering import AnswerService
+        ans_svc = AnswerService(retrieval=svc)
+        print("\n=== 生成答案（LLM） ===")
+        out = ans_svc.answer(args.query, top_k=args.top_k, enable_rerank=args.rerank)
+        print(out["answer"])  # 纯文本输出，末尾包含引用
+    else:
+        # 仅展示候选片段
+        results = svc.retrieve(query=args.query, top_k=args.top_k, enable_rerank=args.rerank)
 
-    # 步骤5：格式化并显示结果
-    print("\n=== 候选片段 ===")
-    if not results:
-        print("未找到相关结果")
-        return
-        
-    for i, r in enumerate(results, start=1):
-        # 截取文本预览（前200字符）
-        preview = r.text.strip().replace("\n", " ")[:200]
-        
-        # 根据是否有重排分数选择显示格式
-        if r.rerank_score is not None:
-            # 有重排分数：显示重排分数和原始相似度分数
-            print(f"Top{i}: rerank_score={r.rerank_score:.4f}, base_sim={r.score:.4f}, source={r.source}")
-        else:
-            # 无重排分数：只显示相似度分数
-            print(f"Top{i}: sim={r.score:.4f}, source={r.source}")
-        
-        print(f"  {preview}...\n")
+        print("\n=== 候选片段 ===")
+        if not results:
+            print("未找到相关结果")
+            return
+            
+        for i, r in enumerate(results, start=1):
+            # 截取文本预览（前200字符）
+            preview = r.text.strip().replace("\n", " ")[:200]
+            
+            # 根据是否有重排分数选择显示格式
+            if r.rerank_score is not None:
+                # 有重排分数：显示重排分数和原始相似度分数
+                print(f"Top{i}: rerank_score={r.rerank_score:.4f}, base_sim={r.score:.4f}, source={r.source}")
+            else:
+                # 无重排分数：只显示相似度分数
+                print(f"Top{i}: sim={r.score:.4f}, source={r.source}")
+            
+            print(f"  {preview}...\n")
 
 
 if __name__ == "__main__":

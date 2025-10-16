@@ -1,0 +1,4 @@
+question,top_k,enable_rerank,hit_at_k,keyword_coverage,num_present,num_expected,present_keywords
+感冒和流感有什么区别？,3,True,1,0.75,3,4,"症状,发热,并发症"
+如何预防感冒？,3,True,1,0.75,3,4,"洗手,疫苗,运动"
+流感的高危人群有哪些？,3,True,1,1.0,4,4,"老年人,儿童,孕妇,慢性病"

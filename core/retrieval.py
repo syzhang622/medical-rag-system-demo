@@ -146,7 +146,7 @@ class RetrievalService:
                 vector_store=self.vector_store,
                 persist_dir=persist_dir  # 关键：指定持久化目录
             )
-            logger.info("存储上下文创建成功")
+            logger.info("存储上下文创建成功")#storage_context.docstore 存不存文本（可查 len(docstore.docs)）
             
             # 使用 load_index_from_storage 而不是 from_vector_store
             self.index = load_index_from_storage(storage_context) 
