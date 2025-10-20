@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional
 class CandidateResult:
     text: str
     source: str
-    score: float
-    rerank_score: Optional[float]
+    sim_score: float  # 语义相似度分数
+    rerank_score: Optional[float]  # 重排分数（可选）
     metadata: Dict[str, Any]
 
 

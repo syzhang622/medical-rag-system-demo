@@ -78,6 +78,7 @@ def _format_source(meta: Dict[str, Any]) -> str:
     return ", ".join([f"{k}={v}" for k, v in items]) if items else "unknown"
 
 
+# 兼容旧名：语义（FAISS）检索器
 class RetrievalService:
     """检索服务类 - RAG系统的核心检索组件
     
@@ -111,8 +112,10 @@ class RetrievalService:
         """
         # 设置Hugging Face镜像（加速模型下载）
         os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-        # 强制使用本地缓存，避免网络请求
+        # 设置离线模式，优先使用本地缓存
         os.environ["HF_HUB_OFFLINE"] = "1"
+        # 设置更长的超时时间
+        os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "60"
         
         # 获取索引目录并验证文件存在
         persist_dir = _get_index_dir(self.cfg)
@@ -198,7 +201,7 @@ class RetrievalService:
                     CandidateResult(
                         text=(n.text or ""),
                         source=_format_source(meta),
-                        score=float(getattr(n, "score", 0.0)),      # 原始相似度分数
+                        sim_score=float(getattr(n, "score", 0.0)),  # 语义相似度分数
                         rerank_score=float(s),                      # 重排分数
                         metadata=meta,
                     )
@@ -211,7 +214,7 @@ class RetrievalService:
                     CandidateResult(
                         text=(n.text or ""),
                         source=_format_source(meta),
-                        score=float(getattr(n, "score", 0.0)),      # 相似度分数
+                        sim_score=float(getattr(n, "score", 0.0)),  # 语义相似度分数
                         rerank_score=None,                          # 无重排分数
                         metadata=meta,
                     )

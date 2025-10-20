@@ -27,7 +27,7 @@ import os
 import sys
 import csv
 import argparse
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import statistics
 
 # 添加项目根目录到Python路径
@@ -35,6 +35,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from scripts.config import Config
 from core.retrieval import RetrievalService
+from core.hyde import HyDERetriever
 
 
 def normalize(s: str) -> str:
@@ -77,10 +78,13 @@ def keyword_presence_in_text(text: str, keywords: List[str]) -> Dict[str, bool]:
 
 def evaluate_single_question(
     svc: RetrievalService,
+    hyde: Optional[HyDERetriever],
     question: str,
     expected_keywords: List[str],
     top_k: int,
     enable_rerank: bool,
+    use_hyde: bool,
+    use_hybrid: bool,
 ) -> Dict[str, object]:
     """
     📊 对单个问题进行完整的检索侧评估
@@ -104,7 +108,15 @@ def evaluate_single_question(
        - 0.75表示覆盖了75%的关键词
     """
     # 步骤1：执行检索，获取前K个最相关的文档片段
-    results = svc.retrieve(query=question, top_k=top_k, enable_rerank=enable_rerank)
+    if use_hybrid and hyde is not None:
+        results = hyde.retrieve_hybrid(question=question, top_k=top_k, enable_rerank=enable_rerank)
+        mode = "hybrid"
+    elif use_hyde and hyde is not None:
+        results = hyde.retrieve_with_hyde(question=question, top_k=top_k, enable_rerank=enable_rerank)
+        mode = "hyde"
+    else:
+        results = svc.retrieve(query=question, top_k=top_k, enable_rerank=enable_rerank)
+        mode = "base"
     print(f"    检索到 {len(results)} 个片段")
 
     # 步骤2：计算关键词覆盖率
@@ -136,6 +148,7 @@ def evaluate_single_question(
         "question": question,
         "top_k": top_k,
         "enable_rerank": enable_rerank,
+        "mode": mode,
         "hit_at_k": int(hit_at_k),  # 1或0
         "keyword_coverage": round(keyword_coverage, 4),  # 0-1之间的小数
         "num_present": num_present,  # 命中的关键词数量
@@ -209,6 +222,9 @@ def build_argparser() -> argparse.ArgumentParser:
                    help="导出CSV路径，如 data/eval_results.csv")
     p.add_argument("--repeats", type=int, default=1,
                    help="每个问题重复评估次数（默认1，用于稳定性快测）")
+    # HyDE/混合检索
+    p.add_argument("--hyde", action="store_true", help="使用HyDE假设答案进行检索")
+    p.add_argument("--hybrid", action="store_true", help="原始+HyDE检索结果融合")
     return p
 
 
@@ -236,6 +252,7 @@ def main() -> None:
     
     # 步骤3：初始化检索服务
     svc = RetrievalService(cfg)
+    hyde_svc = HyDERetriever(cfg=cfg, retrieval=svc)
     print("🔄 正在加载索引与嵌入模型...")
     svc.load()
     print("✅ 索引加载完成")
@@ -263,10 +280,13 @@ def main() -> None:
             recs.append(
                 evaluate_single_question(
                     svc=svc,
+                    hyde=hyde_svc,
                     question=q,
                     expected_keywords=expected_keywords,
                     top_k=k,
                     enable_rerank=enable_rerank,
+                    use_hyde=bool(args.hyde),
+                    use_hybrid=bool(args.hybrid),
                 )
             )
 
@@ -288,10 +308,10 @@ def main() -> None:
         })
         rows.append(agg)
 
-        # 显示结果
-        print(f"📈 结果: hit@{k}={rec['hit_at_k']} | 关键词覆盖率={rec['keyword_coverage']:.3f} ({rec['num_present']}/{rec['num_expected']})")
-        if rec["present_keywords"]:
-            print(f"✅ 命中的关键词: {rec['present_keywords']}")
+        # 显示结果（以聚合后的最后一次记录为代表）
+        print(f"📈 结果: hit@{k}={agg['hit_at_k']} | 关键词覆盖率={agg['keyword_coverage']:.3f} ({agg['num_present']}/{agg['num_expected']})")
+        if agg["present_keywords"]:
+            print(f"✅ 命中的关键词: {agg['present_keywords']}")
         else:
             print("❌ 未命中任何关键词")
 

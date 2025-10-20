@@ -88,6 +88,13 @@ class IndexingService:
             
             # 使用LlamaIndex的文档加载器
             reader = SimpleDirectoryReader("temp_docs")
+           # LlamaIndex 自动添加的 metadata 包括：
+            #file_name: 文件名（如 "medical_faq.txt"）
+            #file_path: 文件路径
+            #doc_id: 文档ID
+            #source: 来源信息
+            #其他自动生成的字段
+            
             documents = reader.load_data()
             
             logger.info(f"成功加载 {len(documents)} 个文档")

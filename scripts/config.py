@@ -14,6 +14,8 @@ load_dotenv()
 
 # 设置 Hugging Face 镜像（加速模型下载，国内访问更快）
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+# 设置离线模式，避免网络问题
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 class Config:
     """系统配置类 - 所有配置参数的集中管理"""
@@ -29,8 +31,8 @@ class Config:
     
     # ========== 文本分块配置 ==========
     # 文本分块：将长文档切成小块，便于处理和搜索
-    CHUNK_SIZE = 384      # 每个文本块的最大字符数
-    CHUNK_OVERLAP = 100    # 相邻文本块之间的重叠字符数
+    CHUNK_SIZE = 512     # 每个文本块的最大字符数
+    CHUNK_OVERLAP = 50    # 相邻文本块之间的重叠字符数
     # 为什么需要分块：
     # - 块太小：会丢失上下文信息，影响理解
     # - 块太大：搜索精度下降，找到的内容不够精准
