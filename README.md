@@ -2,19 +2,29 @@
 
 基于LlamaIndex和FAISS的医疗问答检索增强生成(RAG)系统，支持HyDE查询扩展和检索精度评估。
 
-## 项目结构
+## 项目结构（实际工程）
 
 ```
 medical-rag-system/
-├── requirements.txt              # 项目依赖
-├── config.py                    # 配置文件
-├── medical_faq.txt              # 医疗FAQ数据
-├── env_example.txt              # 环境变量示例
-├── stage1_data_preparation.py   # 阶段一：数据准备
-├── stage2_basic_rag.py          # 阶段二：基础RAG（待实现）
-├── stage3_hyde_optimization.py  # 阶段三：HyDE优化（待实现）
-├── stage4_industrial_guide.py   # 阶段四：工业化指导（待实现）
-└── README.md                    # 项目说明
+├── apps/
+│   └── cli/                    # 命令行工具
+│       ├── build_index.py      # 构建向量索引
+│       └── retrieve.py         # 检索 / HyDE / 混合 / 问答
+├── core/                       # 核心能力
+│   ├── indexing.py             # 文档加载与分块、索引构建
+│   ├── retrieval.py            # 语义向量检索（FAISS）+ 可选重排
+│   ├── hyde.py                 # HyDE 与混合检索
+│   └── answering.py            # AnswerService：上下文组织、LLM 调用、引用与扎根
+├── rag/
+│   └── types.py                # 通用结构体（CandidateResult 等）
+├── scripts/
+│   ├── config.py               # 统一配置（HF 离线/超时、路径等）
+│   └── eval.py                 # 命令行评估（Hit@K/关键词覆盖率）
+├── data/                       # 数据与索引输出
+│   └── faiss_index/            # FAISS 持久化目录
+├── README.md
+├── requirements.txt
+└── .env（自备，可选）
 ```
 
 ## 快速开始
@@ -139,19 +149,33 @@ python scripts/eval.py --k 3 --hyde --rerank --export data/eval_results_hyde_rer
 - **引用验证**: 验证答案中引用编号的有效性和覆盖率
 
 ### 技术特性
-- **Token级截断**: 使用tiktoken精确控制上下文长度
-- **降级策略**: LLM失败时自动降级为检索摘要
-- **结构化输出**: 返回完整的证据列表和质量评估信息
-- **轻量扎根判定**: 关键词+相似度混合验证答案可信度
+- **Token 级截断**: 使用 tiktoken 精确控制上下文长度（与 DeepSeek/GPT BPE 对齐）
+- **降级策略**: 证据不足或 LLM 失败时，自动降级（启用 hybrid+rerank / 提高 Top-K / 拒答并附证据）
+- **结构化输出**: 返回答案、引用、证据清单、证据质量、引用校验等
+- **混合扎根判定**: 关键词优先 + 相似度兜底，提升可信度判定鲁棒性
 
 ## 技术栈
 
 - **核心框架**: LlamaIndex
 - **向量数据库**: FAISS
-- **嵌入模型**: BAAI/bge-m3 (主要), OpenAI text-embedding-3-small (备用)
-- **LLM**: DeepSeek Chat API
-- **重排模型**: 交叉编码器
-- **评估指标**: Hit@K, 关键词覆盖率, 引用可信度
+- **嵌入模型**: sentence-transformers/all-MiniLM-L6-v2（默认），可替换为 BGE/BERT 家族
+- **LLM**: DeepSeek Chat API（OpenAI 兼容）
+- **重排模型**: Cross-Encoder（可选启用）
+- **评估指标**: Hit@K、关键词覆盖率、引用覆盖率/有效性
+
+> 网络受限环境：已在 `scripts/config.py` 中默认开启 `HF_HUB_OFFLINE=1`，并在 `core/retrieval.py` 中延长 `HF_HUB_DOWNLOAD_TIMEOUT`。
+
+## 设计思路（What/Why/How）
+
+- **HyDE（Why）**: 用户问题可能短/口语化，语义密度不足；让 LLM 先生成“假设答案”作为高密度查询，可显著增强召回。
+- **混合检索（How）**: 原始检索 + HyDE 检索结果融合（去重+统一排序）。保留直观匹配，又引入语义扩展，鲁棒性更好。
+- **证据质量评估（Why）**: 防止弱证据硬生成带来幻觉；先评估关键词覆盖/最佳命中/平均相似度。
+- **降级策略（How）**: 证据不足时，依次尝试 hybrid+rerank、启用 rerank、提升 top_k；仍不足则拒答并附证据预览。
+- **Token 级截断（How）**: 使用 tiktoken 与模型 BPE 对齐，避免中文被错误切断，确保 token 预算可控。
+- **引用校验（How）**: 要求答案内内联 `[来源1]` 等编号，生成后验证范围与覆盖率，提升可追溯性。
+- **混合扎根判定（Why/How）**: 先用关键词回查（快、可解释），不足再用 3-gram 相似度兜底，兼顾效率与鲁棒性。
+
+
 
 ## 开发阶段
 

@@ -79,18 +79,22 @@ def main() -> None:
     # 步骤1：解析命令行参数
     args = build_argparser().parse_args()
     
-    # 步骤2：加载底层向量检索器（HyDE 会复用它）
+    # 步骤2：加载底层向量检索器
     svc = RetrievalService()
     print("正在加载索引和模型...")
     svc.load()
-    hyde = HyDERetriever(retrieval=svc)
+    
+    # 步骤3：创建 HyDERetriever（仅在需要时创建，避免重复实例化）
+    hyde = None
+    if args.hyde or args.hybrid or args.answer:
+        hyde = HyDERetriever(retrieval=svc)
     
     # 步骤4：执行检索或问答
     print(f"正在检索: {args.query}")
     if args.answer:
-        # 端到端问答：由 AnswerService 根据 mode 选择检索策略
+        # 端到端问答：复用已创建的 HyDERetriever 实例
         from core.answering import AnswerService
-        ans_svc = AnswerService(retrieval=svc)
+        ans_svc = AnswerService(retrieval=svc, hyde=hyde)
         mode = _decide_mode(args)
         print("\n=== 生成答案（LLM） ===")
         out = ans_svc.answer(args.query, top_k=args.top_k, enable_rerank=args.rerank, mode=mode)

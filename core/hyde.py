@@ -105,6 +105,7 @@ class HyDERetriever:
     # - 去重：以“文本摘要指纹”判重，避免同义/相似片段重复占位；
     # - 排序：若有重排分（cross-encoder 更准确），优先用其；否则退回相似度分。
     def _merge_results(self, base: List[CandidateResult], hyde: List[CandidateResult]) -> List[CandidateResult]:
+        
         by_fp: Dict[str, CandidateResult] = {}
 
         def consider(item: CandidateResult) -> None:

@@ -30,7 +30,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from scripts.config import Config
 from core.retrieval import RetrievalService
-from core.hyde import HyDERetriever
+
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +112,16 @@ DEFAULT_SYSTEM_PROMPT = (
 class AnswerService:
     """问答服务：把检索到的片段喂给 LLM，得到答案与引用。"""
 
-    def __init__(self, cfg: Optional[Config] = None, retrieval: Optional[RetrievalService] = None, llm: Optional[LLMClient] = None) -> None:
+    def __init__(self, cfg: Optional[Config] = None, retrieval: Optional[RetrievalService] = None, llm: Optional[LLMClient] = None, hyde: Optional['HyDERetriever'] = None) -> None:
         self.cfg = cfg or Config()
         self.retrieval = retrieval or RetrievalService(self.cfg)
         self.llm = llm or LLMClient(self.cfg)
-        self.hyde = HyDERetriever(cfg=self.cfg, retrieval=self.retrieval, llm=self.llm)
+        # 如果外部传入了 HyDERetriever 实例，则复用；否则创建新的
+        if hyde is not None:
+            self.hyde = hyde
+        else:
+            from core.hyde import HyDERetriever
+            self.hyde = HyDERetriever(cfg=self.cfg, retrieval=self.retrieval, llm=self.llm)
 
     def _format_context(self, texts: List[str], sources: List[str], max_chars: int = 6000, max_tokens: int = 3500) -> str:
         """将若干片段整理为上下文（优先按 token 截断，退化为字符截断）。
@@ -147,7 +152,7 @@ class AnswerService:
                     total_tokens += need
                     continue
 
-                # 仅截断当前片段的正文，尽量保留 header 信息
+                # 仅截断当前片段的正文，保留 header 信息
                 remain = max(0, max_tokens - total_tokens - len(header_tokens) - 1)
                 if remain > 0:
                     truncated = _TK_ENC.decode(body_tokens[:remain])
@@ -203,7 +208,7 @@ class AnswerService:
             matches = re.findall(pattern, answer)
             citations.extend([int(m) for m in matches])
         
-        # 去重并排序
+        # 去重 并 排序
         return sorted(list(set(citations)))
     
     def _validate_citations(self, answer: str, num_sources: int) -> Dict[str, any]:
@@ -346,13 +351,13 @@ class AnswerService:
         if not results:
             return {"is_weak": True, "reason": "无检索结果", "coverage": 0.0, "best_rank": 0, "avg_sim_score": 0.0}
         
-        # 1. 提取问题关键词（工业级方法：jieba + TF-IDF）
+        # 1. 提取问题关键词（工业级方法：jieba + TF​ ​TF（词频）-​IDF（逆文档频率））
         question_keywords = self._extract_keywords(question)
         
         if not question_keywords:
             return {"is_weak": False, "reason": "无法提取关键词", "coverage": 1.0, "best_rank": 1, "avg_sim_score": 0.0}
         
-        # 2. 计算关键词覆盖率
+        # 2. 计算关键词覆盖率 是全文搜索
         all_text = "\n".join([r.text or "" for r in results])
         present_keywords = [kw for kw in question_keywords if kw in all_text]
         coverage = len(present_keywords) / len(question_keywords) if question_keywords else 0.0
