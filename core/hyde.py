@@ -16,12 +16,17 @@ HyDE（Hypothetical Document Embeddings）检索：
 - 失败时降级：若假设答案生成失败，则自动回退为“原始检索”。
 """
 
+import os
+import sys
 from typing import List, Optional, Dict, Tuple
 import hashlib
 
+# 添加项目根目录到Python路径（必须在导入其他模块之前）
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+
 from scripts.config import Config
 from core.retrieval import RetrievalService
-from rag.types import CandidateResult
+from components.types import CandidateResult
 
 
 _HYDE_SYSTEM_PROMPT = (
@@ -55,7 +60,7 @@ class HyDERetriever:
         self.retrieval = retrieval or RetrievalService(self.cfg)
         # 延迟导入LLMClient，避免循环导入
         if llm is None:
-            from core.answering import LLMClient
+            from components.llm_client import LLMClient
             self.llm = LLMClient(self.cfg)
         else:
             self.llm = llm
@@ -72,7 +77,7 @@ class HyDERetriever:
             system_prompt=_HYDE_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             max_tokens=self.cfg.MAX_TOKENS,
-            # 关键点：适度降低温度，让“假设答案”更收敛、结构更稳定
+            # 关键点：适度降低温度，让"假设答案"更收敛、结构更稳定
             temperature=min(0.5, self.cfg.TEMPERATURE),
         )
 
@@ -101,9 +106,24 @@ class HyDERetriever:
         # 截断到 Top-K
         return merged[: int(k)]
 
-    # 简单融合策略（为什么/怎么做）：
-    # - 去重：以“文本摘要指纹”判重，避免同义/相似片段重复占位；
-    # - 排序：若有重排分（cross-encoder 更准确），优先用其；否则退回相似度分。
+    """
+    融合策略：为什么不用 RRF (Reciprocal Rank Fusion)？
+    
+    RRF 是什么：
+    - RRF 是一种基于排名的融合算法，公式：score = Σ 1/(k + rank)
+    - 例如：文档在列表1排名第2，列表2排名第1，则得分 = 1/(60+2) + 1/(60+1) = 0.0325
+    - 优点：简单、鲁棒、不需要归一化不同来源的分数
+    
+    为什么这里不用 RRF：
+    - 我们已经有了精确的相关性分数（sim_score 和 rerank_score）
+    - 直接用分数排序比用排名更准确（分数包含了更多信息）
+    - RRF 适合"只有排名、没有可靠分数"的场景
+    - 我们的策略：去重 + 保留最高分 + 按分数排序，更直接高效
+    
+    当前融合策略：
+    - 去重：以"文本摘要指纹"判重，避免同义/相似片段重复占位
+    - 排序：优先用重排分（cross-encoder 更准确），否则用相似度分
+    """
     def _merge_results(self, base: List[CandidateResult], hyde: List[CandidateResult]) -> List[CandidateResult]:
         
         by_fp: Dict[str, CandidateResult] = {}

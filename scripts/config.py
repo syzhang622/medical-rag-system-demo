@@ -7,6 +7,7 @@
 """
 
 import os
+import warnings
 from dotenv import load_dotenv
 
 # 加载环境变量（从.env文件读取API密钥等敏感信息）
@@ -16,6 +17,9 @@ load_dotenv()
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 # 设置离线模式，避免网络问题
 os.environ["HF_HUB_OFFLINE"] = "1"
+
+# 抑制 huggingface_hub 的 FutureWarning 警告
+warnings.filterwarnings("ignore", message=".*resume_download.*", category=FutureWarning)
 
 class Config:
     """系统配置类 - 所有配置参数的集中管理"""

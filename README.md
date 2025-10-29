@@ -1,6 +1,91 @@
 # 医疗问答RAG系统
 
-基于LlamaIndex和FAISS的医疗问答检索增强生成(RAG)系统，支持HyDE查询扩展和检索精度评估。
+> 🎯 **我的RAG学习记录项目** - 从零开始学习检索增强生成技术，适合初学者参考
+
+这是我基于LlamaIndex和FAISS开发的医疗问答检索增强生成(RAG)系统，支持HyDE查询扩展和检索精度评估。通过这个项目，我学习了RAG系统的完整实现流程。
+
+
+### ✅ 已完成的核心功能
+
+#### 1. **基础RAG架构**
+- **文档处理**: 支持医疗FAQ文档的加载、分块和向量化
+- **向量检索**: 基于FAISS的语义向量检索
+- **LLM集成**: 集成DeepSeek API进行答案生成
+- **引用系统**: 完整的引用验证和格式化
+
+#### 2. **高级检索优化**
+- **HyDE技术**: 假设答案生成，提升对比类问题的检索效果
+- **混合检索**: 原始检索与HyDE检索结果融合
+- **交叉编码器重排**: 使用CrossEncoder提升检索精度
+- **证据质量检查**: 自动评估证据充分性，支持降级策略
+
+#### 3. **工业级特性**
+- **降级策略**: 证据不足时自动尝试不同检索模式
+- **Token级截断**: 使用tiktoken精确控制上下文长度
+- **错误处理**: 完善的异常处理和降级机制
+- **配置管理**: 统一的配置系统，支持环境变量
+
+#### 4. **评估体系**
+- **Hit@K指标**: 评估检索精度
+- **关键词覆盖率**: 评估内容相关性
+- **引用验证**: 验证答案引用的有效性
+- **批量评估**: 支持多问题批量测试
+
+### 📈 当前运行状态
+
+#### 数据准备 ✅
+- 医疗FAQ数据已准备完成（`data/medical_faq.txt`）
+- 已构建两个不同参数的FAISS索引：
+  - `cs384_co100`: 分块大小384，重叠100
+  - `cs512_co50`: 分块大小512，重叠50
+
+#### 评估结果 ✅
+从完整评估报告（`docs/EVALUATION_REPORT.md` 和 `data/eval_summary.txt`）可以看到：
+- **所有模式Hit@3**: 100% (3/3问题全部命中)
+- **关键词覆盖率**: 平均83.3%
+- **重要发现**: Base、HyDE、Hybrid三种模式在当前数据集上表现一致，说明系统稳定可靠
+- 测试问题覆盖：感冒vs流感区别、预防感冒、流感高危人群
+
+### 🚀 项目优势
+
+1. **架构设计优秀**: 模块化设计，职责分离清晰
+2. **功能完整**: 从基础检索到高级优化一应俱全
+3. **工业级特性**: 完善的错误处理、降级策略、配置管理
+4. **评估体系**: 科学的评估指标和测试流程
+5. **文档完善**: 代码注释详细，README文档完整
+
+## 开发阶段
+
+### 阶段一：环境搭建与数据准备 ✅
+- [x] 项目结构创建
+- [x] 依赖安装配置
+- [x] 医疗FAQ数据准备
+- [x] 文档加载和分块
+- [x] BGE-M3嵌入向量化
+- [x] FAISS索引构建
+
+### 阶段二：基础RAG与检索精度评估 ✅
+- [x] 基础问答链实现
+- [x] 检索精度评估函数
+- [x] Hit@3指标计算
+- [x] 测试集评估
+
+### 阶段三：HyDE优化检索 ✅
+- [x] HyDE查询扩展实现
+- [x] 假设答案生成
+- [x] 优化检索效果对比
+
+### 阶段四：工业化思维与扩展（进行中）
+- [x] 高级检索策略（HyDE、混合检索、重排、证据质量检查、降级策略）
+- [x] 评估流程文档化（一键评估脚本 + 评估报告模板）
+- [x] HyDE评估方法文档化（详见 docs/EVALUATION_REPORT.md）
+- [ ] 对比结果展示（运行完整评估，填充评估报告）
+- [ ] HyDE假设答案缓存优化（计划实现）
+- [ ] 模型切换机制（支持动态切换不同嵌入模型）
+- [ ] 生产环境监控（结构化日志、性能指标）
+- [ ] 数据安全考虑（敏感信息过滤、访问控制）
+- [ ] RRF融合策略（考虑中）
+- [ ] BM25+向量检索混合（计划实现）
 
 ## 项目结构（实际工程）
 
@@ -15,13 +100,20 @@ medical-rag-system/
 │   ├── retrieval.py            # 语义向量检索（FAISS）+ 可选重排
 │   ├── hyde.py                 # HyDE 与混合检索
 │   └── answering.py            # AnswerService：上下文组织、LLM 调用、引用与扎根
-├── rag/
+├── components/                 # 组件模块
+│   ├── llm_client.py          # LLM客户端封装
+│   ├── evidence_quality.py    # 证据质量检查
+│   ├── rerankers.py           # 重排器实现
+│   ├── text_processing.py     # 文本处理工具
 │   └── types.py                # 通用结构体（CandidateResult 等）
 ├── scripts/
 │   ├── config.py               # 统一配置（HF 离线/超时、路径等）
 │   └── eval.py                 # 命令行评估（Hit@K/关键词覆盖率）
 ├── data/                       # 数据与索引输出
-│   └── faiss_index/            # FAISS 持久化目录
+│   ├── faiss_index/            # FAISS 持久化目录
+│   ├── medical_faq.txt         # 医疗FAQ数据
+│   ├── eval_results_*.csv      # 各模式评估结果（base/hyde/hybrid）
+│   └── eval_summary.txt        # 评估结果汇总
 ├── README.md
 ├── requirements.txt
 └── .env（自备，可选）
@@ -116,26 +208,44 @@ python -m apps.cli.retrieve --q "感冒和流感有什么区别？" --k 3 --hybr
 
 ### 6. 系统评估
 
-#### 基础评估
+#### 🚀 一键运行完整评估（推荐）
+```bash
+# 自动运行所有模式的评估并生成对比报告
+python -m scripts.run_eval_all
+```
+
+这个脚本会自动：
+- 运行 Base、HyDE、Hybrid 三种模式的评估
+- 可选：运行带重排的评估
+- 生成汇总对比表格
+- 保存详细结果到 CSV 文件
+
+#### 手动运行单个评估
 ```bash
 # 基线检索评估
-python scripts/eval.py --k 3 --export data/eval_results.csv
+python -m scripts.eval --k 3 --export data/eval_results_base.csv
 
 # HyDE检索评估
-python scripts/eval.py --k 3 --hyde --export data/eval_results_hyde.csv
+python -m scripts.eval --k 3 --hyde --export data/eval_results_hyde.csv
 
 # 混合检索评估
-python scripts/eval.py --k 3 --hybrid --export data/eval_results_hybrid.csv
+python -m scripts.eval --k 3 --hybrid --export data/eval_results_hybrid.csv
 ```
 
 #### 带重排的评估
 ```bash
 # 基线 + 重排
-python scripts/eval.py --k 3 --rerank --export data/eval_results_rerank.csv
+python -m scripts.eval --k 3 --rerank --export data/eval_results_base_rerank.csv
 
 # HyDE + 重排
-python scripts/eval.py --k 3 --hyde --rerank --export data/eval_results_hyde_rerank.csv
+python -m scripts.eval --k 3 --hyde --rerank --export data/eval_results_hyde_rerank.csv
+
+# Hybrid + 重排
+python -m scripts.eval --k 3 --hybrid --rerank --export data/eval_results_hybrid_rerank.csv
 ```
+
+#### 📊 查看评估报告
+评估完成后，查看详细分析报告：[docs/EVALUATION_REPORT.md](docs/EVALUATION_REPORT.md)
 
 
 ## 功能特性
@@ -156,12 +266,14 @@ python scripts/eval.py --k 3 --hyde --rerank --export data/eval_results_hyde_rer
 
 ## 技术栈
 
-- **核心框架**: LlamaIndex
+- **核心框架**: LlamaIndex 0.10.12
 - **向量数据库**: FAISS
 - **嵌入模型**: sentence-transformers/all-MiniLM-L6-v2（默认），可替换为 BGE/BERT 家族
 - **LLM**: DeepSeek Chat API（OpenAI 兼容）
 - **重排模型**: Cross-Encoder（可选启用）
 - **评估指标**: Hit@K、关键词覆盖率、引用覆盖率/有效性
+- **文本处理**: jieba分词、tiktoken tokenization
+- **数据处理**: pandas、numpy、scikit-learn
 
 > 网络受限环境：已在 `scripts/config.py` 中默认开启 `HF_HUB_OFFLINE=1`，并在 `core/retrieval.py` 中延长 `HF_HUB_DOWNLOAD_TIMEOUT`。
 
@@ -177,42 +289,40 @@ python scripts/eval.py --k 3 --hyde --rerank --export data/eval_results_hyde_rer
 
 
 
-## 开发阶段
 
-### 阶段一：环境搭建与数据准备 ✅
-- [x] 项目结构创建
-- [x] 依赖安装配置
-- [x] 医疗FAQ数据准备
-- [x] 文档加载和分块
-- [x] BGE-M3嵌入向量化
-- [x] FAISS索引构建
 
-### 阶段二：基础RAG与检索精度评估 ✅
-- [x] 基础问答链实现
-- [x] 检索精度评估函数
-- [x] Hit@3指标计算
-- [x] 测试集评估
+### 🎯 优先改进方向
 
-### 阶段三：HyDE优化检索 ✅
-- [x] HyDE查询扩展实现
-- [x] 假设答案生成
-- [x] 优化检索效果对比
+1. **扩展数据**: 增加更多医疗文档和测试问题
+   - 添加更多医疗领域的FAQ数据
+   - 扩展测试问题集，覆盖更多医疗场景
+   - 考虑添加多语言支持
 
-### 阶段四：工业化思维与扩展（待实现）
-- [ ] 模型切换机制
-- [ ] 高级检索策略
-- [ ] 生产环境监控
-- [ ] 数据安全考虑
-- [ ] 评估流程文档化（如何运行、解读结果、工业界标准）
-- [ ] HyDE评估方法文档化
-- [ ] 对比结果展示（运行固定对比，展示HyDE效果）
-- [ ] RRF融合策略（更稳健的结果融合）
-- [ ] BM25+向量检索器维度混合
-- [ ] HyDE假设答案缓存优化
+2. **模型优化**: 尝试更大的嵌入模型（如BGE系列）
+   - 测试BGE-M3、BGE-large等更大模型
+   - 对比不同嵌入模型的检索效果
+   - 优化模型加载和缓存策略
+
+3. **性能调优**: 基于评估结果优化参数配置
+   - 调整分块大小和重叠参数
+   - 优化Top-K值和重排策略
+   - 测试不同温度参数对HyDE的影响
+
+4. **生产部署**: 添加Docker、API服务等部署相关功能
+   - 容器化部署配置
+   - REST API接口封装
+   - 生产环境监控和日志
+
+5. **评估扩展**: 建立更全面的评估体系
+   - 添加更多评估指标（如BLEU、ROUGE）
+   - 建立人工评估流程
+   - 添加A/B测试框架
 
 ## 注意事项
 
-1. **首次运行**：需要下载BGE-M3模型，可能需要几分钟时间
+1. **首次运行**：需要下载sentence-transformers/all-MiniLM-L6-v2模型，可能需要几分钟时间
 2. **API密钥**：确保配置正确的DeepSeek API密钥
 3. **硬件要求**：建议至少4GB内存用于模型推理
 4. **网络要求**：需要稳定的网络连接下载模型和调用API
+5. **索引构建**：首次使用需要先运行`python -m apps.cli.build_index`构建索引
+6. **评估结果**：当前系统在3个测试问题上达到100% Hit@3和83.3%关键词覆盖率

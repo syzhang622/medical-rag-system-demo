@@ -21,7 +21,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from scripts.config import Config
-from core.retrieval import RetrievalService  # 语义检索（旧名保留）
+from core.retrieval import RetrievalService
 from core.hyde import HyDERetriever
 
 
@@ -76,13 +76,28 @@ def main() -> None:
     4. 执行检索查询
     5. 格式化并显示结果
     """
-    # 步骤1：解析命令行参数
-    args = build_argparser().parse_args()
+    try:
+        print("开始执行CLI工具...")
+        # 步骤1：解析命令行参数
+        args = build_argparser().parse_args()
+        print(f"参数解析完成: query={args.query}, k={args.top_k}")
+    except Exception as e:
+        print(f"参数解析失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return
     
     # 步骤2：加载底层向量检索器
     svc = RetrievalService()
     print("正在加载索引和模型...")
-    svc.load()
+    try:
+        svc.load()
+        print("索引加载完成")
+    except Exception as e:
+        print(f"索引加载失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return
     
     # 步骤3：创建 HyDERetriever（仅在需要时创建，避免重复实例化）
     hyde = None

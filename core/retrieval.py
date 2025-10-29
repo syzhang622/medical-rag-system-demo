@@ -9,9 +9,13 @@
 """
 
 import os
+import sys
 import pickle
 import logging
 from typing import Any, Dict, List, Optional
+
+# 添加项目根目录到Python路径（必须在导入其他模块之前）
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 # 禁用Hugging Face符号链接警告
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -22,16 +26,29 @@ from llama_index.core import (
     Settings,
     load_index_from_storage,
 )
+
+"""
+4️⃣ llama_index.core 的导入触发了一系列初始化
+llama_index.core 这个包在导入时会：
+- 导入 llama_index.core.base.response.schema
+- 导入 llama_index.core.schema
+- 导入 llama_index.core.utils
+- 导入 nltk（自然语言处理库）
+- 导入 scipy.stats（科学计算库）
+
+问题出在这里：
+这些库在初始化时会：
+- 检查某些全局配置
+- 初始化某些单例对象
+- 可能会基于进程启动时的环境做一些决策
+"""
+
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-
 from scripts.config import Config
-from rag.types import CandidateResult
-from rag.rerankers import BaseReranker, CrossEncoderReranker
+from components.types import CandidateResult
+from components.rerankers import BaseReranker, CrossEncoderReranker
 
 
 logger = logging.getLogger(__name__)

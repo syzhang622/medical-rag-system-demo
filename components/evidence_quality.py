@@ -8,7 +8,7 @@
 """
 
 from typing import List, Dict, Optional
-from .text_processing import KeywordExtractor
+from components.text_processing import KeywordExtractor
 
 
 class EvidenceQualityChecker:
